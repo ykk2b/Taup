@@ -1,1 +1,1 @@
-# Taup
+# Terminal-based Audio Player

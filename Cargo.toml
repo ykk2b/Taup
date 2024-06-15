@@ -1,0 +1,11 @@
+[package]
+name = "taup"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alsa = "0.9.0"
+alsa-sys = "0.3.1"
+clap = "3.2.18"
+rodio = { version = "0.18.1", features = ["mp3"] }
+tokio = { version = "1.23", features = ["full"] }
