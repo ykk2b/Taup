@@ -1,13 +1,13 @@
 use clap::{App, Arg};
 use rodio::{Decoder, OutputStream, Sink, Source};
 use std::fs::{self, File};
-use std::io::{stdin, BufReader};
+use std::io::{BufReader, stdin};
 use std::path::{Path, PathBuf};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = App::new("Taup")
-        .version("0.1")
+        .version("0.1.0")
         .author("ykk2")
         .about("Terminal-based audio player")
         .arg(
@@ -31,6 +31,9 @@ fn shuffle_files(files: &mut [PathBuf]) {
         files.swap(i, j);
     }
 }
+
+
+
 async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
@@ -96,54 +99,91 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let mut input = String::new();
         stdin().read_line(&mut input).unwrap();
-
-        match input.trim() {
+        let args: Vec<&str> = input.trim_end().split(" ").collect();
+        match args[0] {
             "help" => {
-                println!("List of commands:");
-                println!("- help: Display this help message.");
-                println!("- shuffle: Toggle between shuffle/no shuffe");
-                println!("- mute: Toggle between mute/unmute");
-                println!("- skip: Skip to the next song");
-                println!("- next: Play the next audio in the queue");
-                println!("- play: Play/Unpause the audio");
-                println!("- pause: Pause the audio");
-                println!("- raise: Raise the volume");
-                println!("- lower: Lower the volume");
-                println!("- exit: Stop the audio player.");
-            }
-            "repeate" => {}
-            "mute" => {
-                if sink.volume() == 0.0 {
-                    sink.set_volume(1.0)
+                if args.len() > 1 {
+                    match args[1] {
+                        "play" | "unpause" | "p" => {
+                            println!("\n Play");
+                            println!("- aliases: play, unpause, p");
+                            println!("- description: Pause the audio");
+                        }
+                        "pause" | "stop" | "s" => {
+                            println!("\n Pause");
+                            println!("- aliases: pause, stop, s");
+                            println!("- description: Play/Upause the audio");
+                        }
+                        "mute" | "silence" | "t" => {
+                            println!("\n Mute");
+                            println!("- aliases: mute, silence, t");
+                            println!("- description: Toggle between mute/unmute");
+                        }
+                        "next" | "skip" | "n" => {
+                            println!("\n Next");
+                            println!("- aliases: next, skip, n");
+                            println!("- description: Play the next audio in the queue");
+                        }
+                        "volume" | "vol" | "v" => {
+                            println!("\n Volume");
+                            println!("- aliases: volume, vol, v");
+                            println!("- description:  Get the audio volume");
+                        }
+                        "raise" | "incr" | "r" => {
+                            println!("\n Mute");
+                            println!("- aliases: raise, incr, r");
+                            println!("- description: Raise the volume by (volume) or 20%");
+                        }
+                        "lower" | "decr" | "l" => {
+                            println!("\n Mute");
+                            println!("- aliases: lower, decr, l");
+                            println!("- description: Lower the volume by (volume) or 20%");
+                        }
+                        "shuffle" | "random" | "h" => {
+                            println!("\n Mute");
+                            println!("- aliases: raisshufflee, random, h");
+                            println!("- description: Toggle between shuffle/no shuffe");
+                        }
+                        "exit" | "end" | "e" => {
+                            println!("\n Mute");
+                            println!("- aliases: exit, end, e");
+                            println!("- description: Stop the audio player");
+                        }
+                        _ => {}
+                    }
                 } else {
-                    sink.set_volume(0.0)
+                    println!("List of commands:");
+                    println!(
+                        "- help (command): Display this help message, or more info about the command"
+                    );
+                    println!("- play: Play/Unpause the audio");
+                    println!("- pause: Pause the audio");
+                    println!("- mute: Toggle between mute/unmute");
+                    println!("- next: Play the next audio in the queue");
+                    println!("- volume: Get the audio volume");
+                    println!("- raise (volume): Raise the volume by (volume) or 20%");
+                    println!("- lower (volume): Lower the volume by (volume) or 20%");
+                    println!("- shuffle: Toggle between shuffle/no shuffe");
+                    println!("- exit: Stop the audio player");
                 }
             }
-            "play" => {
+            "play" | "unpause" | "p" => {
                 if sink.is_paused() {
                     sink.play()
                 } else {
                     sink.pause()
                 }
             }
-            "raise" => {
-                if sink.volume() >= 0.8 {
+            "pause" | "stop" | "s" => sink.pause(),
+
+            "mute" | "silence" | "t" => {
+                if sink.volume() == 0.0 {
                     sink.set_volume(1.0)
                 } else {
-                    sink.set_volume(sink.volume() + 0.2)
-                }
-
-                println!("volume: {}%", (sink.volume() * 100.0).round());
-            }
-            "lower" => {
-                if sink.volume() <= 0.2 {
                     sink.set_volume(0.0)
-                } else {
-                    sink.set_volume(sink.volume() - 0.2)
                 }
-                println!("volume: {}%", (sink.volume() * 100.0).round());
             }
-            "next" => {
+            "next" | "skip" | "n" => {
                 if is_dir {
                     sink.skip_one();
                     if let Some(file_name) = path.file_name() {
@@ -154,7 +194,50 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                     println!("You can't skip");
                 }
             }
-            "shuffle" => {
+            "volume" | "vol" | "v" => {
+                println!("volume: {}%", (sink.volume() * 100.0).round());
+            }
+            "raise" | "incr" | "r" => {
+                if args.len() > 1 {
+                    let volume_change: f32 =
+                        args[1].parse().expect("Volume change must be a number");
+
+                    if sink.volume() >= 1.0 - volume_change.round() / 100.0 {
+                        sink.set_volume(1.0)
+                    } else {
+                        sink.set_volume(sink.volume() + volume_change.round() / 100.0)
+                    }
+                } else {
+                    if sink.volume() >= 0.8 {
+                        sink.set_volume(1.0)
+                    } else {
+                        sink.set_volume(sink.volume() + 0.2)
+                    }
+                }
+
+                println!("volume: {}%", (sink.volume() * 100.0).round());
+            }
+            "lower" | "decr" | "l" => {
+                if args.len() > 1 {
+                    let volume_change: f32 =
+                        args[1].parse().expect("Volume change must be a number");
+
+                    if sink.volume() >= volume_change.round() / 100.0 {
+                        sink.set_volume(0.0)
+                    } else {
+                        sink.set_volume(sink.volume() - volume_change.round() / 100.0)
+                    }
+                } else {
+                    if sink.volume() >= 0.8 {
+                        sink.set_volume(0.0)
+                    } else {
+                        sink.set_volume(sink.volume() - 0.2)
+                    }
+                }
+
+                println!("volume: {}%", (sink.volume() * 100.0).round());
+            }
+            "shuffle" | "random" | "h" => {
                 shuffle = !shuffle;
                 if shuffle {
                     println!("shuffle enabled")
@@ -162,7 +245,6 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                     println!("shuffle disabled")
                 }
             }
-            "pause" => sink.pause(),
             "exit" => return Ok(()),
             _ => println!("Command not recognized. Try 'help'."),
         }
