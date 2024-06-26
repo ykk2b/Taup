@@ -1,13 +1,14 @@
 use clap::{App, Arg};
 use rodio::{Decoder, OutputStream, Sink, Source};
 use std::fs::{self, File};
-use std::io::{BufReader, stdin};
+use std::io::{stdin, BufReader};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = App::new("Taup")
-        .version("0.1.0")
+        .version("0.1.1")
         .author("ykk2")
         .about("Terminal-based audio player")
         .arg(
@@ -32,16 +33,18 @@ fn shuffle_files(files: &mut [PathBuf]) {
     }
 }
 
-
-
 async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
+
     let is_dir = Path::new(file_path).is_dir();
     let path = Path::new(file_path);
     let mut shuffle = true;
+    let mut files = Vec::new();
+
+    let currently_playing = Arc::new(Mutex::new(String::new()));
+
     if is_dir {
-        let mut files = Vec::new();
         for entry in fs::read_dir(file_path)? {
             let entry = entry?;
             let path = entry.path();
@@ -69,11 +72,14 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         sink.play();
+        println!("{:?}", sink.len());
         if let Some(file_name) = files
             .get(0)
             .and_then(|p| p.file_name())
             .and_then(|n| n.to_str())
         {
+            let mut current = currently_playing.lock().unwrap();
+            *current = file_name.to_string();
             println!("Playing: {}", file_name);
         }
     } else {
@@ -90,8 +96,11 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
         sink.append(source);
         sink.play();
+
         if let Some(file_name) = path.file_name() {
             let file_name_str = file_name.to_str().unwrap_or("Unknown");
+            let mut current = currently_playing.lock().unwrap();
+            *current = file_name_str.to_string();
             println!("Playing: {}", file_name_str);
         }
     }
@@ -109,11 +118,6 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                             println!("- aliases: play, unpause, p");
                             println!("- description: Pause the audio");
                         }
-                        "pause" | "stop" | "s" => {
-                            println!("\n Pause");
-                            println!("- aliases: pause, stop, s");
-                            println!("- description: Play/Upause the audio");
-                        }
                         "mute" | "silence" | "t" => {
                             println!("\n Mute");
                             println!("- aliases: mute, silence, t");
@@ -127,25 +131,25 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                         "volume" | "vol" | "v" => {
                             println!("\n Volume");
                             println!("- aliases: volume, vol, v");
-                            println!("- description:  Get the audio volume");
+                            println!("- description: Get the audio volume");
                         }
                         "raise" | "incr" | "r" => {
-                            println!("\n Mute");
+                            println!("\n Raise");
                             println!("- aliases: raise, incr, r");
                             println!("- description: Raise the volume by (volume) or 20%");
                         }
                         "lower" | "decr" | "l" => {
-                            println!("\n Mute");
+                            println!("\n Lower");
                             println!("- aliases: lower, decr, l");
                             println!("- description: Lower the volume by (volume) or 20%");
                         }
                         "shuffle" | "random" | "h" => {
-                            println!("\n Mute");
-                            println!("- aliases: raisshufflee, random, h");
-                            println!("- description: Toggle between shuffle/no shuffe");
+                            println!("\n Shuffle");
+                            println!("- aliases: shuffle, random, h");
+                            println!("- description: Toggle between shuffle/no shuffle");
                         }
                         "exit" | "end" | "e" => {
-                            println!("\n Mute");
+                            println!("\n Exit");
                             println!("- aliases: exit, end, e");
                             println!("- description: Stop the audio player");
                         }
@@ -163,7 +167,7 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                     println!("- volume: Get the audio volume");
                     println!("- raise (volume): Raise the volume by (volume) or 20%");
                     println!("- lower (volume): Lower the volume by (volume) or 20%");
-                    println!("- shuffle: Toggle between shuffle/no shuffe");
+                    println!("- shuffle: Toggle between shuffle/no shuffle");
                     println!("- exit: Stop the audio player");
                 }
             }
@@ -174,8 +178,6 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                     sink.pause()
                 }
             }
-            "pause" | "stop" | "s" => sink.pause(),
-
             "mute" | "silence" | "t" => {
                 if sink.volume() == 0.0 {
                     sink.set_volume(1.0)
@@ -188,7 +190,11 @@ async fn play_audio(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                     sink.skip_one();
                     if let Some(file_name) = path.file_name() {
                         let file_name_str = file_name.to_str().unwrap_or("Unknown");
-                        println!("Playing: {}", file_name_str);
+                        let mut current = currently_playing.lock().unwrap();
+                        if *current != file_name_str {
+                            println!("Playing: {}", file_name_str);
+                            *current = file_name_str.to_string();
+                        }
                     }
                 } else {
                     println!("You can't skip");

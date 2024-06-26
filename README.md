@@ -19,8 +19,7 @@ taup ~/Music/ # Select directory or audio file to start playing
 ## Commands
 
 - `help (cmd)`: display the list of commands or detailed help about (cmd)
-- `play`: play or upause the audio
-- `pause`: pause the audio
+- `play`: play/pause the audio
 - `mute`: mute/unmute the audio
 - `next`: play the next audio in the queue
 - `volume`: get the current volume
